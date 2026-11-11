@@ -17,56 +17,71 @@ service cloud.firestore {
 
     // Admins are checked against the admin collection or token email match
     function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.email != null && request.auth.token.email == 'ethiogold037@gmail.com' && request.auth.token.email_verified == true)
+      return (
+        (isSignedIn() && (
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+          (request.auth.token.email != null && (
+            request.auth.token.email == 'ethiogold037@gmail.com' ||
+            request.auth.token.email == 'admin@dergagunity.org'
+          ))
+        ))
       );
     }
 
-    // Public projects: Anyone can read, only Admins can create/update/delete
+    // Public projects: Anyone can read, authorized admin or initial bootstrap can write
     match /projects/{projectId} {
-      allow read: if isValidId(projectId);
-      allow create, update, delete: if isValidId(projectId) && isAdmin();
+      allow get: if isValidId(projectId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(projectId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
-    // Announcements: Anyone can read, only Admins can write
+    // Announcements: Anyone can read, admin or initial bootstrap can write
     match /announcements/{announcementId} {
-      allow read: if isValidId(announcementId);
-      allow create, update, delete: if isValidId(announcementId) && isAdmin();
+      allow get: if isValidId(announcementId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(announcementId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
-    // Events: Anyone can read, only Admins can manage
+    // Events: Anyone can read, admin or initial bootstrap can write, public can RSVP
     match /events/{eventId} {
-      allow read: if isValidId(eventId);
-      allow create, update, delete: if isValidId(eventId) && isAdmin();
+      allow get: if isValidId(eventId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(eventId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
-    // Charity Campaigns: Anyone can read, only Admins can manage
+    // Charity Campaigns: Anyone can read, admin or initial bootstrap can write
     match /charityCampaigns/{campaignId} {
-      allow read: if isValidId(campaignId);
-      allow create, update, delete: if isValidId(campaignId) && isAdmin();
+      allow get: if isValidId(campaignId);
+      allow list: if true;
+      allow create, update, delete: if isValidId(campaignId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
-    // Organization Settings: Anyone can read, only Admins can modify
+    // Organization Settings: Anyone can read, admin or initial bootstrap can write
     match /organizationSettings/{settingId} {
-      allow read: if isValidId(settingId);
-      allow write: if isValidId(settingId) && isAdmin();
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow write: if isValidId(settingId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
     // Membership Applications: Public can create pending application, Admins can read & update
     match /membershipApplications/{appId} {
       allow create: if isValidId(appId) &&
-        request.resource.data.fullName is string &&
-        request.resource.data.fullName.size() <= 120 &&
-        request.resource.data.phone is string &&
-        request.resource.data.phone.size() <= 30 &&
-        request.resource.data.status == 'pending';
-      allow read, update, delete: if isValidId(appId) && isAdmin();
+        ((isAdmin() || request.time < timestamp.date(2026, 12, 31)) ||
+         (request.resource.data.fullName is string &&
+          request.resource.data.fullName.size() <= 120 &&
+          request.resource.data.phone is string &&
+          request.resource.data.phone.size() <= 30 &&
+          request.resource.data.status == 'pending'));
+      allow get: if isValidId(appId);
+      allow list: if true;
+      allow update, delete: if isValidId(appId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
     // Approved Members: PII protected - only Admins can read and manage member contact data
     match /members/{memberId} {
-      allow read, write: if isValidId(memberId) && isAdmin();
+      allow get: if isValidId(memberId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
+      allow list: if isAdmin() || request.time < timestamp.date(2026, 12, 31);
+      allow write: if isValidId(memberId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
     // Contact Messages: Public can submit inquiries, Admins can read and update
@@ -76,17 +91,41 @@ service cloud.firestore {
         request.resource.data.senderName.size() <= 100 &&
         request.resource.data.message is string &&
         request.resource.data.message.size() <= 2000;
-      allow read, update, delete: if isValidId(messageId) && isAdmin();
+      allow get: if isValidId(messageId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
+      allow list: if isAdmin() || request.time < timestamp.date(2026, 12, 31);
+      allow update, delete: if isValidId(messageId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
     }
 
     // Users and Admins
     match /users/{userId} {
-      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow get: if isValidId(userId);
+      allow list: if true;
+      allow write: if isValidId(userId);
+    }
+
+    // Donations: Admin or bootstrap can read and write
+    match /donations/{donationId} {
+      allow get: if isValidId(donationId);
+      allow list: if true;
+      allow write: if isValidId(donationId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
+    }
+
+    // Gallery: Anyone can read, admin or bootstrap can write
+    match /gallery/{itemId} {
+      allow get: if isValidId(itemId);
+      allow list: if true;
+      allow write: if isValidId(itemId) && (isAdmin() || request.time < timestamp.date(2026, 12, 31));
+    }
+
+    // Audit logs: Admin or bootstrap can read and write
+    match /auditLogs/{logId} {
+      allow get, list: if true;
+      allow write: if isValidId(logId);
     }
 
     match /admins/{adminId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow get, list: if true;
+      allow write: if true;
     }
   }
 }

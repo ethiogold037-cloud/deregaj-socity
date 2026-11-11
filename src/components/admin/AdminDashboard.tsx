@@ -181,11 +181,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setNotification(null), 3500);
   };
 
-  const handleLogin = async (roleToUse?: UserRole) => {
+  const handleLogin = async (roleToUse?: UserRole, customEmail?: string) => {
     try {
       setAuthLoading(true);
       const targetRole = roleToUse || loginRole;
-      const res = await api.login(loginEmail, loginPassword, targetRole);
+      const targetEmail = customEmail || (roleToUse ? (roleToUse === 'super_admin' ? 'ethiogold037@gmail.com' : `${roleToUse}@dergagunity.org`) : loginEmail);
+      const res = await api.login(targetEmail, loginPassword, targetRole);
       setCurrentUser(res.user);
       showToast(`Logged in successfully as ${res.user.displayName}`);
       fetchAllData();
@@ -537,40 +538,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-white py-9 px-6 sm:px-10 shadow-2xl rounded-3xl border-2 border-[#D6A84B]/40 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#2563EB] via-[#D6A84B] to-[#059669]" />
 
-            {/* Quick Staff Role Selection */}
-            <div className="mb-6 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <span className="text-[11px] font-bold text-[#14213D] uppercase tracking-wider block mb-2.5">
-                {currentLang === 'am' ? 'ፈጣን የሙከራ ሚና ይምረጡ (Quick Test Roles):' : 'Select Authorized Staff Role to Test:'}
+            {/* Ethio Gold Super Admin Primary Button */}
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 shadow-sm">
+              <span className="text-[11px] font-black text-[#14213D] uppercase tracking-wider block mb-2.5">
+                {currentLang === 'am' ? 'የባለቤት እና ሱፐር አድሚን ፈጣን መግቢያ:' : 'Primary Super Admin Direct Access:'}
               </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleLogin('super_admin')}
-                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#14213D] to-[#102A43] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs border border-slate-700"
-                >
-                  Super Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLogin('membership_manager')}
-                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#059669] to-[#047857] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs"
-                >
-                  Membership Head
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLogin('project_manager')}
-                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs"
-                >
-                  Project Director
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLogin('content_manager')}
-                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs"
-                >
-                  Content Editor
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail('ethiogold037@gmail.com');
+                  handleLogin('super_admin', 'ethiogold037@gmail.com');
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#D6A84B] via-[#F4B942] to-[#B8860B] text-[#14213D] font-black text-xs hover:brightness-105 active:scale-[0.99] transition-all flex items-center justify-between shadow-md cursor-pointer border border-amber-300"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-[#14213D] text-amber-300 flex items-center justify-center font-bold text-xs shadow-xs">
+                    EG
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[12px] font-black leading-tight text-[#14213D]">Ethio Gold (Super Admin)</div>
+                    <div className="text-[10px] font-mono text-[#14213D]/80">ethiogold037@gmail.com</div>
+                  </div>
+                </div>
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#14213D] text-amber-300 uppercase tracking-wider font-black shadow-xs">
+                  {currentLang === 'am' ? 'በ1-ክሊክ ግባ' : '1-Click Login'}
+                </span>
+              </button>
+
+              <div className="mt-3 pt-3 border-t border-amber-200/70">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  {currentLang === 'am' ? 'ሌሎች የሰራተኞች ሚናዎች (Other Staff Roles):' : 'Other Department Roles:'}
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleLogin('membership_manager')}
+                    className="py-2 px-2.5 rounded-lg bg-gradient-to-r from-[#059669] to-[#047857] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs text-[11px]"
+                  >
+                    Membership Head
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLogin('project_manager')}
+                    className="py-2 px-2.5 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs text-[11px]"
+                  >
+                    Project Director
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLogin('content_manager')}
+                    className="py-2 px-2.5 rounded-lg bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs text-[11px]"
+                  >
+                    Content Editor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLogin('super_admin', 'admin@dergagunity.org')}
+                    className="py-2 px-2.5 rounded-lg bg-gradient-to-r from-[#14213D] to-[#102A43] text-white font-bold hover:brightness-110 transition-all text-left truncate cursor-pointer shadow-xs text-[11px] border border-slate-700"
+                  >
+                    Solomon (General)
+                  </button>
+                </div>
               </div>
             </div>
 

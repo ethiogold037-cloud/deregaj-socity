@@ -2,6 +2,8 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { initializeApp as initFirebaseApp } from 'firebase/app';
+import { getFirestore, doc as fsDoc, setDoc as fsSetDoc, deleteDoc as fsDeleteDoc } from 'firebase/firestore';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +13,32 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Initialize live Cloud Firestore connection
+let firestoreDb: any = null;
+try {
+  const configPath = path.join(__dirname, 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const fbConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const fbApp = initFirebaseApp(fbConfig);
+    firestoreDb = getFirestore(fbApp, fbConfig.firestoreDatabaseId);
+    console.log('Firebase Cloud Firestore live sync initialized:', fbConfig.firestoreDatabaseId);
+  }
+} catch (e) {
+  console.warn('Firebase initialization notice:', (e as Error).message);
+}
+
+function syncToFirestore(collectionName: string, docId: string, data: any) {
+  if (!firestoreDb) return;
+  fsSetDoc(fsDoc(firestoreDb, collectionName, docId), data)
+    .catch((err: any) => console.warn(`Firestore sync [${collectionName}/${docId}]:`, err.message));
+}
+
+function deleteFromFirestore(collectionName: string, docId: string) {
+  if (!firestoreDb) return;
+  fsDeleteDoc(fsDoc(firestoreDb, collectionName, docId))
+    .catch((err: any) => console.warn(`Firestore delete [${collectionName}/${docId}]:`, err.message));
+}
 
 // Data file path
 const DATA_DIR = path.join(__dirname, 'data');
@@ -637,11 +665,12 @@ function logAudit(action: string, actor: string, actorRole: string, details: str
     actorRole,
     details,
     targetCollection,
-    targetId,
+    targetId: targetId || null,
     timestamp: new Date().toISOString()
   };
   db.auditLogs = [log, ...(db.auditLogs || [])];
   saveDatabase(db);
+  syncToFirestore('auditLogs', log.id, log);
 }
 
 // Security & Auth helpers
@@ -724,6 +753,7 @@ app.put('/api/settings', requireAuth, (req, res) => {
     ...req.body
   };
   saveDatabase(db);
+  syncToFirestore('organizationSettings', 'default', db.organizationSettings);
   logAudit('UPDATE_SETTINGS', req.body.updatedBy || 'Administrator', 'admin', 'Updated organizational contact and background settings', 'organizationSettings');
   res.json({ success: true, settings: db.organizationSettings });
 });
@@ -768,6 +798,7 @@ app.post('/api/members', requireAuth, (req, res) => {
   };
   db.members.push(newMember);
   saveDatabase(db);
+  syncToFirestore('members', newMember.id, newMember);
   logAudit('CREATE_MEMBER', req.body.createdBy || 'Staff', 'admin', `Directly registered member ${newMember.fullName} (${newMember.memberId})`, 'members', newMember.id);
   res.status(201).json(newMember);
 });
@@ -780,6 +811,7 @@ app.put('/api/members/:id', requireAuth, (req, res) => {
   }
   db.members[index] = { ...db.members[index], ...req.body };
   saveDatabase(db);
+  syncToFirestore('members', req.params.id, db.members[index]);
   logAudit('UPDATE_MEMBER', req.body.updatedBy || 'Staff', 'membership_manager', `Updated details for member ${db.members[index].fullName}`, 'members', req.params.id);
   res.json(db.members[index]);
 });
@@ -832,6 +864,7 @@ app.post('/api/applications', (req, res) => {
 
   db.membershipApplications = [newApp, ...(db.membershipApplications || [])];
   saveDatabase(db);
+  syncToFirestore('membershipApplications', newApp.id, newApp);
   logAudit('APPLICATION_SUBMITTED', 'Public Visitor', 'guest', `New application submitted by ${fullName} (${phone})`, 'membershipApplications', newApp.id);
   res.status(201).json({ success: true, application: newApp });
 });
@@ -909,6 +942,8 @@ app.put('/api/applications/:id/approve', requireAuth, (req, res) => {
 
   db.members = [newMember, ...(db.members || [])];
   saveDatabase(db);
+  syncToFirestore('membershipApplications', targetApp.id, db.membershipApplications[appIndex]);
+  syncToFirestore('members', newMember.id, newMember);
   logAudit('APPROVE_APPLICATION', reviewer, 'membership_manager', `Approved application for ${targetApp.fullName} and generated Member ID ${newMemberId}`, 'members', newMember.id);
   res.json({ success: true, member: newMember, application: db.membershipApplications[appIndex] });
 });
@@ -932,6 +967,7 @@ app.put('/api/applications/:id/reject', requireAuth, (req, res) => {
   };
 
   saveDatabase(db);
+  syncToFirestore('membershipApplications', db.membershipApplications[appIndex].id, db.membershipApplications[appIndex]);
   logAudit('REJECT_APPLICATION', reviewer, 'membership_manager', `Rejected application for ${db.membershipApplications[appIndex].fullName}: ${reason}`, 'membershipApplications', req.params.id);
   res.json({ success: true, application: db.membershipApplications[appIndex] });
 });
@@ -962,6 +998,7 @@ app.post('/api/projects', requireAuth, (req, res) => {
   };
   db.projects = [newProject, ...(db.projects || [])];
   saveDatabase(db);
+  syncToFirestore('projects', newProject.id, newProject);
   logAudit('CREATE_PROJECT', req.body.createdBy || 'Staff', 'project_manager', `Created community project "${newProject.title}"`, 'projects', newProject.id);
   res.status(201).json(newProject);
 });
@@ -978,6 +1015,7 @@ app.put('/api/projects/:id', requireAuth, (req, res) => {
     updatedAt: new Date().toISOString()
   };
   saveDatabase(db);
+  syncToFirestore('projects', req.params.id, db.projects[index]);
   logAudit('UPDATE_PROJECT', req.body.updatedBy || 'Staff', 'project_manager', `Updated project "${db.projects[index].title}"`, 'projects', req.params.id);
   res.json(db.projects[index]);
 });
@@ -987,6 +1025,7 @@ app.delete('/api/projects/:id', requireAuth, (req, res) => {
   const target = db.projects.find((p: any) => p.id === req.params.id);
   db.projects = db.projects.filter((p: any) => p.id !== req.params.id);
   saveDatabase(db);
+  deleteFromFirestore('projects', req.params.id);
   logAudit('DELETE_PROJECT', 'Administrator', 'admin', `Deleted project "${target?.title || req.params.id}"`, 'projects', req.params.id);
   res.json({ success: true });
 });
@@ -1006,6 +1045,7 @@ app.post('/api/campaigns', requireAuth, (req, res) => {
   };
   db.charityCampaigns = [newCamp, ...(db.charityCampaigns || [])];
   saveDatabase(db);
+  syncToFirestore('charityCampaigns', newCamp.id, newCamp);
   logAudit('CREATE_CAMPAIGN', req.body.createdBy || 'Staff', 'admin', `Created charity campaign "${newCamp.title}"`, 'charityCampaigns', newCamp.id);
   res.status(201).json(newCamp);
 });
@@ -1018,6 +1058,7 @@ app.put('/api/campaigns/:id', requireAuth, (req, res) => {
   }
   db.charityCampaigns[index] = { ...db.charityCampaigns[index], ...req.body };
   saveDatabase(db);
+  syncToFirestore('charityCampaigns', req.params.id, db.charityCampaigns[index]);
   logAudit('UPDATE_CAMPAIGN', req.body.updatedBy || 'Staff', 'admin', `Updated campaign "${db.charityCampaigns[index].title}"`, 'charityCampaigns', req.params.id);
   res.json(db.charityCampaigns[index]);
 });
@@ -1026,6 +1067,7 @@ app.delete('/api/campaigns/:id', requireAuth, (req, res) => {
   const db = loadDatabase();
   db.charityCampaigns = db.charityCampaigns.filter((c: any) => c.id !== req.params.id);
   saveDatabase(db);
+  deleteFromFirestore('charityCampaigns', req.params.id);
   res.json({ success: true });
 });
 
@@ -1044,6 +1086,7 @@ app.post('/api/donations', requireAuth, (req, res) => {
   };
   db.donations = [newDonation, ...(db.donations || [])];
   saveDatabase(db);
+  syncToFirestore('donations', newDonation.id, newDonation);
   logAudit('RECORD_DONATION', req.body.recordedBy || 'Finance', 'admin', `Recorded contribution of ${newDonation.amount} ${newDonation.currency} (Ref: ${newDonation.referenceNumber})`, 'donations', newDonation.id);
   res.status(201).json(newDonation);
 });
@@ -1060,6 +1103,7 @@ app.put('/api/donations/:id/verify', requireAuth, (req, res) => {
     verifiedBy: req.body.verifiedBy || 'Finance Auditor'
   };
   saveDatabase(db);
+  syncToFirestore('donations', req.params.id, db.donations[index]);
   logAudit('VERIFY_DONATION', req.body.verifiedBy || 'Finance Auditor', 'admin', `Verified donation Ref: ${db.donations[index].referenceNumber}`, 'donations', req.params.id);
   res.json(db.donations[index]);
 });
@@ -1080,6 +1124,7 @@ app.post('/api/announcements', requireAuth, (req, res) => {
   };
   db.announcements = [newPost, ...(db.announcements || [])];
   saveDatabase(db);
+  syncToFirestore('announcements', newPost.id, newPost);
   logAudit('PUBLISH_ANNOUNCEMENT', req.body.author || 'Content Team', 'content_manager', `Published announcement "${newPost.title}"`, 'announcements', newPost.id);
   res.status(201).json(newPost);
 });
@@ -1092,6 +1137,7 @@ app.put('/api/announcements/:id', requireAuth, (req, res) => {
   }
   db.announcements[index] = { ...db.announcements[index], ...req.body };
   saveDatabase(db);
+  syncToFirestore('announcements', req.params.id, db.announcements[index]);
   res.json(db.announcements[index]);
 });
 
@@ -1099,6 +1145,7 @@ app.delete('/api/announcements/:id', requireAuth, (req, res) => {
   const db = loadDatabase();
   db.announcements = db.announcements.filter((a: any) => a.id !== req.params.id);
   saveDatabase(db);
+  deleteFromFirestore('announcements', req.params.id);
   res.json({ success: true });
 });
 
@@ -1117,6 +1164,7 @@ app.post('/api/events', requireAuth, (req, res) => {
   };
   db.events = [newEvent, ...(db.events || [])];
   saveDatabase(db);
+  syncToFirestore('events', newEvent.id, newEvent);
   logAudit('CREATE_EVENT', req.body.organizer || 'Events Team', 'admin', `Scheduled community event "${newEvent.title}"`, 'events', newEvent.id);
   res.status(201).json(newEvent);
 });
@@ -1129,6 +1177,7 @@ app.put('/api/events/:id', requireAuth, (req, res) => {
   }
   db.events[index] = { ...db.events[index], ...req.body };
   saveDatabase(db);
+  syncToFirestore('events', req.params.id, db.events[index]);
   res.json(db.events[index]);
 });
 
@@ -1136,6 +1185,7 @@ app.delete('/api/events/:id', requireAuth, (req, res) => {
   const db = loadDatabase();
   db.events = db.events.filter((e: any) => e.id !== req.params.id);
   saveDatabase(db);
+  deleteFromFirestore('events', req.params.id);
   res.json({ success: true });
 });
 
@@ -1147,6 +1197,7 @@ app.post('/api/events/:id/rsvp', (req, res) => {
   }
   db.events[index].attendeeCount = (Number(db.events[index].attendeeCount) || 0) + 1;
   saveDatabase(db);
+  syncToFirestore('events', req.params.id, db.events[index]);
   res.json({ success: true, attendeeCount: db.events[index].attendeeCount });
 });
 
@@ -1165,6 +1216,7 @@ app.post('/api/gallery', requireAuth, (req, res) => {
   };
   db.gallery = [newItem, ...(db.gallery || [])];
   saveDatabase(db);
+  syncToFirestore('gallery', newItem.id, newItem);
   res.status(201).json(newItem);
 });
 
@@ -1172,6 +1224,7 @@ app.delete('/api/gallery/:id', requireAuth, (req, res) => {
   const db = loadDatabase();
   db.gallery = db.gallery.filter((g: any) => g.id !== req.params.id);
   saveDatabase(db);
+  deleteFromFirestore('gallery', req.params.id);
   res.json({ success: true });
 });
 
@@ -1191,6 +1244,7 @@ app.post('/api/messages', (req, res) => {
   };
   db.contactMessages = [newMessage, ...(db.contactMessages || [])];
   saveDatabase(db);
+  syncToFirestore('contactMessages', newMessage.id, newMessage);
   logAudit('CONTACT_MESSAGE_RECEIVED', req.body.senderName || 'Visitor', 'guest', `Received message from ${req.body.senderName} (${req.body.senderPhone})`, 'contactMessages', newMessage.id);
   res.status(201).json({ success: true, message: newMessage });
 });
@@ -1201,6 +1255,7 @@ app.put('/api/messages/:id/read', requireAuth, (req, res) => {
   if (index !== -1) {
     db.contactMessages[index].isRead = true;
     saveDatabase(db);
+    syncToFirestore('contactMessages', req.params.id, db.contactMessages[index]);
   }
   res.json({ success: true });
 });

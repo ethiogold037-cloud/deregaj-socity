@@ -90,6 +90,23 @@
   ],
   "members": [
     {
+      "id": "mem_1794406774156",
+      "memberId": "DU-2026-0007",
+      "fullName": "Tadele Mengistu",
+      "gender": "male",
+      "phone": "+251912334455",
+      "email": "tadele.m@gmail.com",
+      "cityRegion": "Addis Ababa",
+      "currentLocation": "Yeka Subcity",
+      "dergagRelationship": "Native Born",
+      "profession": "Civil Engineer",
+      "interestAreas": "",
+      "volunteerSkills": "",
+      "status": "approved",
+      "joinedDate": "2026-11-11",
+      "approvedBy": "Ethio Gold"
+    },
+    {
       "id": "mem_1794150957007",
       "memberId": "DU-2026-0006",
       "fullName": "Tariku Bogale",
@@ -188,6 +205,23 @@
     }
   ],
   "membershipApplications": [
+    {
+      "id": "app_1794406762153",
+      "fullName": "Tadele Mengistu",
+      "gender": "male",
+      "phone": "+251912334455",
+      "email": "tadele.m@gmail.com",
+      "cityRegion": "Addis Ababa",
+      "currentLocation": "Yeka Subcity",
+      "dergagRelationship": "Native Born",
+      "profession": "Civil Engineer",
+      "privacyConsent": true,
+      "status": "approved",
+      "submittedAt": "2026-11-11T14:19:22.153Z",
+      "reviewedBy": "Ethio Gold",
+      "reviewedAt": "2026-11-11T14:19:34.156Z",
+      "generatedMemberId": "DU-2026-0007"
+    },
     {
       "id": "app_1794150950328",
       "fullName": "Tariku Bogale",
@@ -452,7 +486,7 @@
       "location": "Dergag Community Center & Online Zoom Broadcast",
       "organizer": "General Secretariat",
       "status": "upcoming",
-      "attendeeCount": 143,
+      "attendeeCount": 144,
       "registrationOpen": true
     },
     {
@@ -564,6 +598,16 @@
   ],
   "contactMessages": [
     {
+      "id": "msg_1794406754635",
+      "senderName": "Kassahun Bekele",
+      "senderPhone": "+251911445566",
+      "senderEmail": "kassahun@gmail.com",
+      "subject": "Support for Solar Water Project",
+      "message": "Greetings, I would like to support the ongoing solar water pump project.",
+      "sentAt": "2026-11-11T14:19:14.635Z",
+      "isRead": false
+    },
+    {
       "id": "msg_1794151779069",
       "senderName": "Test Visitor",
       "senderEmail": "visitor@example.com",
@@ -585,6 +629,46 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "log_1794406774157_95gwk",
+      "action": "APPROVE_APPLICATION",
+      "actor": "Ethio Gold",
+      "actorRole": "membership_manager",
+      "details": "Approved application for Tadele Mengistu and generated Member ID DU-2026-0007",
+      "targetCollection": "members",
+      "targetId": "mem_1794406774156",
+      "timestamp": "2026-11-11T14:19:34.157Z"
+    },
+    {
+      "id": "log_1794406762154_6ogzs",
+      "action": "APPLICATION_SUBMITTED",
+      "actor": "Public Visitor",
+      "actorRole": "guest",
+      "details": "New application submitted by Tadele Mengistu (+251912334455)",
+      "targetCollection": "membershipApplications",
+      "targetId": "app_1794406762153",
+      "timestamp": "2026-11-11T14:19:22.154Z"
+    },
+    {
+      "id": "log_1794406754636_qjema",
+      "action": "CONTACT_MESSAGE_RECEIVED",
+      "actor": "Kassahun Bekele",
+      "actorRole": "guest",
+      "details": "Received message from Kassahun Bekele (+251911445566)",
+      "targetCollection": "contactMessages",
+      "targetId": "msg_1794406754635",
+      "timestamp": "2026-11-11T14:19:14.636Z"
+    },
+    {
+      "id": "log_1794406749421_wfw6k",
+      "action": "USER_LOGIN",
+      "actor": "Ethio Gold (Super Admin)",
+      "actorRole": "super_admin",
+      "details": "Staff login verified for ethiogold037@gmail.com",
+      "targetCollection": "users",
+      "targetId": "usr_ethiogold",
+      "timestamp": "2026-11-11T14:19:09.421Z"
+    },
     {
       "id": "log_1794151789225_6hnbc",
       "action": "USER_LOGIN",

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Language } from '../../types';
+import { Language, Member } from '../../types';
 import { translations } from '../../translations';
 import { api } from '../../services/api';
+import { MembershipIdCardModal } from '../common/MembershipIdCardModal';
 import {
   Users,
   ShieldCheck,
@@ -16,7 +17,8 @@ import {
   Building,
   Heart,
   BadgeCheck,
-  UserPlus
+  UserPlus,
+  Award
 } from 'lucide-react';
 
 interface MembershipSectionProps {
@@ -68,6 +70,7 @@ export const MembershipSection: React.FC<MembershipSectionProps> = ({
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<any | null>(null);
   const [lookupSearched, setLookupSearched] = useState(false);
+  const [selectedCardMember, setSelectedCardMember] = useState<Member | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -489,6 +492,30 @@ export const MembershipSection: React.FC<MembershipSectionProps> = ({
                           {lookupResult.status}
                         </span>
                       </div>
+
+                      {lookupResult.memberId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCardMember({
+                              id: lookupResult.id || 'mem_lookup',
+                              memberId: lookupResult.memberId,
+                              fullName: lookupResult.fullName,
+                              gender: lookupResult.gender || 'prefer_not_to_say',
+                              phone: lookupPhone,
+                              email: lookupResult.email || '',
+                              cityRegion: lookupResult.cityRegion || 'Dergag / Ethiopia',
+                              profession: lookupResult.profession || 'Community Member',
+                              status: 'approved',
+                              joinedDate: lookupResult.joinedDate || new Date().toISOString().split('T')[0]
+                            });
+                          }}
+                          className="mt-3 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#D6A84B] via-[#F4B942] to-[#B8860B] hover:brightness-105 text-[#14213D] font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300 transform active:scale-95"
+                        >
+                          <Award className="w-4 h-4 text-[#14213D]" />
+                          <span>{currentLang === 'am' ? 'ዲጂታል መታወቂያ ካርድ ይመልከቱ' : 'View Official Member ID Badge'}</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="text-rose-200 text-xs font-semibold">
@@ -518,6 +545,13 @@ export const MembershipSection: React.FC<MembershipSectionProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Digital Member ID Card Modal */}
+      <MembershipIdCardModal
+        member={selectedCardMember}
+        onClose={() => setSelectedCardMember(null)}
+        currentLang={currentLang}
+      />
     </section>
   );
 };
