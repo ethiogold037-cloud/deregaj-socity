@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admins are checked against the admin collection or token email match
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email != null && request.auth.token.email == 'ethiogold037@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    // Public projects: Anyone can read, only Admins can create/update/delete
+    match /projects/{projectId} {
+      allow read: if isValidId(projectId);
+      allow create, update, delete: if isValidId(projectId) && isAdmin();
+    }
+
+    // Announcements: Anyone can read, only Admins can write
+    match /announcements/{announcementId} {
+      allow read: if isValidId(announcementId);
+      allow create, update, delete: if isValidId(announcementId) && isAdmin();
+    }
+
+    // Events: Anyone can read, only Admins can manage
+    match /events/{eventId} {
+      allow read: if isValidId(eventId);
+      allow create, update, delete: if isValidId(eventId) && isAdmin();
+    }
+
+    // Charity Campaigns: Anyone can read, only Admins can manage
+    match /charityCampaigns/{campaignId} {
+      allow read: if isValidId(campaignId);
+      allow create, update, delete: if isValidId(campaignId) && isAdmin();
+    }
+
+    // Organization Settings: Anyone can read, only Admins can modify
+    match /organizationSettings/{settingId} {
+      allow read: if isValidId(settingId);
+      allow write: if isValidId(settingId) && isAdmin();
+    }
+
+    // Membership Applications: Public can create pending application, Admins can read & update
+    match /membershipApplications/{appId} {
+      allow create: if isValidId(appId) &&
+        request.resource.data.fullName is string &&
+        request.resource.data.fullName.size() <= 120 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() <= 30 &&
+        request.resource.data.status == 'pending';
+      allow read, update, delete: if isValidId(appId) && isAdmin();
+    }
+
+    // Approved Members: PII protected - only Admins can read and manage member contact data
+    match /members/{memberId} {
+      allow read, write: if isValidId(memberId) && isAdmin();
+    }
+
+    // Contact Messages: Public can submit inquiries, Admins can read and update
+    match /contactMessages/{messageId} {
+      allow create: if isValidId(messageId) &&
+        request.resource.data.senderName is string &&
+        request.resource.data.senderName.size() <= 100 &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() <= 2000;
+      allow read, update, delete: if isValidId(messageId) && isAdmin();
+    }
+
+    // Users and Admins
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
